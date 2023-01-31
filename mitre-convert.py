@@ -19,14 +19,16 @@ def load_data():
         sys.exit(-1)
 
 
-def dump_object(obj : dict, path : str, id : str):
+def dump_object(obj : dict, path : str, id : str, verbose=False):
     '''
     Take a MITRE ATT&CK object, and use json.dumps to dump the obj to the correct path
     under enterprise/<path>/<id>.json
     '''
-    if not os.path.exists(os.path.join(os.getcwd(), path)):
-        os.system('mkdir {}'.format(os.path.join(os.getcwd(), path)))
+    #if not os.path.exists(os.path.join(os.getcwd(), path)):
+    #    os.system('mkdir {}'.format(os.path.join(os.getcwd(), 'enterprise', path)))
     with open(os.path.join(os.getcwd(), 'enterprise/{}/{}.json'.format(path, id)), 'w') as f:
+        if verbose:
+            print('Writing: {}'.format(f.name))
         f.write(json.dumps(obj, indent=3))
 
 
@@ -54,6 +56,7 @@ def scan_for_ttps(mitre : dict):
     RELATIONSHIP = 'relationship' 
     ID           = 'id'
     DATA_SRC     = 'x-mitre-data-source'
+    CAMPAIGN     = 'campaign'
 
 
     # Decrease verbosity of printing
@@ -64,6 +67,10 @@ def scan_for_ttps(mitre : dict):
     passed_dc       = False
     passed_rel      = False
     passed_data_src = False
+    passed_campaign = False
+
+    # Dictionary to hold mapping of technique code to uuid str
+    tcode_2_uuid = {}
     
     for object in mitre['objects']:
         # Not all objects have ext ref, so skip those
@@ -76,6 +83,9 @@ def scan_for_ttps(mitre : dict):
                         if not passed_tech:
                             print("Technique: {}".format(ref[EXT_ID]))
                         dump_object(object, 'technique', ref[EXT_ID])
+                        if ref[EXT_ID] not in tcode_2_uuid.keys():
+                            tcode_2_uuid[ref[EXT_ID]] = object[ID] # Add in mapping for tcode to uuid
+
                         dumped_obj = True
                         passed_tech = True
                     
@@ -108,6 +118,14 @@ def scan_for_ttps(mitre : dict):
                         dump_object(object, 'datasource', ref[EXT_ID])
                         dumped_obj = True
                         passed_data_src = True
+
+                    elif re.match('C[0-9][0-9][0-9][0-9]', ref[EXT_ID]) and object[TYPE] == CAMPAIGN:
+                        if not passed_campaign:
+                            print("Campaign: {}".format(ref[EXT_ID]))
+                             
+                        dump_object(object, 'campaign', ref[EXT_ID])
+                        dumped_obj = True
+                        passed_campaign = True
             
         if TYPE in object.keys() and not dumped_obj:
             if object[TYPE] == DATA_COMP:
@@ -129,6 +147,8 @@ def scan_for_ttps(mitre : dict):
                 dump_object(object, 'intrusion-set', object[NAME])
                 passed_apt = True
 
+    with open('mappings-tech2uuid.json', 'w') as f:
+        f.write(json.dumps(tcode_2_uuid, indent=3))
 
 
 if __name__ == '__main__':
