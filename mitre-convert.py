@@ -24,6 +24,8 @@ def dump_object(obj : dict, path : str, id : str):
     Take a MITRE ATT&CK object, and use json.dumps to dump the obj to the correct path
     under enterprise/<path>/<id>.json
     '''
+    if not os.path.exists(os.path.join(os.getcwd(), path)):
+        os.system('mkdir {}'.format(os.path.join(os.getcwd(), path)))
     with open(os.path.join(os.getcwd(), 'enterprise/{}/{}.json'.format(path, id)), 'w') as f:
         f.write(json.dumps(obj, indent=3))
 
